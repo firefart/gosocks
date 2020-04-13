@@ -46,7 +46,7 @@ package main
 import (
   "time",
 
-  "github.com/firefart/gosocks"
+  socks "github.com/firefart/gosocks"
 )
 
 func main() {
@@ -77,7 +77,7 @@ import (
   "net"
   "context"
 
-  "github.com/firefart/gosocks"
+  socks "github.com/firefart/gosocks"
 )
 
 func main() {
