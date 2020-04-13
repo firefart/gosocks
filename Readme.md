@@ -4,6 +4,8 @@ Basic golang implementation of a socks5 proxy. This implementation is currently 
 
 This implemention also defines some handlers you can use to implement your own protocol behind this proxy server. This can be useful if you come a across a protocol that can be abused for proxy functionality and build a socks5 proxy around it.
 
+The SOCKS protocol is defined in [rfc1928](https://tools.ietf.org/html/rfc1928)
+
 ## Handler Interface
 
 ```golang
