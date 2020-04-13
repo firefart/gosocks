@@ -53,8 +53,9 @@ func main() {
   handler := socks.DefaultHandler{
     Timeout: 1*time.Second,
   }
+  listen := "127.0.0.1:1080"
 	p := socks.Proxy{
-		ServerAddr:   "127.0.0.1:1080",
+		ServerAddr:   listen,
 		Proxyhandler: handler,
 	}
 	log.Infof("starting SOCKS server on %s", listen)
