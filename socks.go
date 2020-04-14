@@ -36,7 +36,7 @@ func (p *Proxy) handle(conn io.ReadWriteCloser) {
 func (p *Proxy) socks(conn io.ReadWriteCloser) *Error {
 	defer func() {
 		if err := p.Proxyhandler.Cleanup(); err != nil {
-			log.Error("error on cleanup: %w", err)
+			log.Errorf("error on cleanup: %w", err)
 		}
 	}()
 
