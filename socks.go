@@ -18,33 +18,36 @@ func (p *Proxy) handle(conn io.ReadWriteCloser) {
 		log.Debugln("client connection closed")
 	}()
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	if c, ok := conn.(net.Conn); ok {
 		log.Debugf("got connection from %s", c.RemoteAddr().String())
 	} else {
 		log.Debug("got connection")
 	}
-	if err := p.socks(conn); err != nil {
+	if err := p.socks(ctx, conn); err != nil {
 		// send error reply
 		log.Errorf("socks error: %v", err.Err)
-		if err := socksErrorReply(conn, err.Reason); err != nil {
+		if err := socksErrorReply(ctx, conn, err.Reason); err != nil {
 			log.Error(err)
 			return
 		}
 	}
 }
 
-func (p *Proxy) socks(conn io.ReadWriteCloser) *Error {
+func (p *Proxy) socks(ctx context.Context, conn io.ReadWriteCloser) *Error {
 	defer func() {
 		if err := p.Proxyhandler.Cleanup(); err != nil {
 			log.Errorf("error on cleanup: %v", err)
 		}
 	}()
 
-	if err := handleConnect(conn); err != nil {
+	if err := handleConnect(ctx, conn); err != nil {
 		return err
 	}
 
-	request, err := handleRequest(conn)
+	request, err := handleRequest(ctx, conn)
 	if err != nil {
 		return err
 	}
@@ -64,7 +67,7 @@ func (p *Proxy) socks(conn io.ReadWriteCloser) *Error {
 	} else {
 		ip = nil
 	}
-	err = handleRequestReply(conn, ip)
+	err = handleRequestReply(ctx, conn, ip)
 	if err != nil {
 		return err
 	}
@@ -74,13 +77,13 @@ func (p *Proxy) socks(conn io.ReadWriteCloser) *Error {
 	wg := &sync.WaitGroup{}
 	errChannel1 := make(chan error, 1)
 	errChannel2 := make(chan error, 1)
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx2, cancel := context.WithCancel(ctx)
 	defer cancel()
 	wg.Add(2)
 
-	go p.copyClientToRemote(conn, remote, wg, errChannel1)
-	go p.copyRemoteToClient(remote, conn, wg, errChannel2)
-	go p.Proxyhandler.Refresh(ctx)
+	go p.copyClientToRemote(ctx2, conn, remote, wg, errChannel1)
+	go p.copyRemoteToClient(ctx2, remote, conn, wg, errChannel2)
+	go p.Proxyhandler.Refresh(ctx2)
 
 	log.Debug("waiting for copy to finish")
 	wg.Wait()
@@ -97,7 +100,7 @@ func (p *Proxy) socks(conn io.ReadWriteCloser) *Error {
 	return nil
 }
 
-func (p *Proxy) copyClientToRemote(client io.ReadCloser, remote io.WriteCloser, wg *sync.WaitGroup, errChannel chan<- error) {
+func (p *Proxy) copyClientToRemote(ctx context.Context, client io.ReadCloser, remote io.WriteCloser, wg *sync.WaitGroup, errChannel chan<- error) {
 	defer wg.Done()
 	defer close(errChannel)
 
@@ -106,7 +109,7 @@ func (p *Proxy) copyClientToRemote(client io.ReadCloser, remote io.WriteCloser, 
 		errChannel <- nil
 		return
 	default:
-		if err := p.Proxyhandler.CopyFromClientToRemote(client, remote); err != nil {
+		if err := p.Proxyhandler.CopyFromClientToRemote(ctx, client, remote); err != nil {
 			errChannel <- fmt.Errorf("error on copy from Client to Remote: %v", err)
 			return
 		}
@@ -115,7 +118,7 @@ func (p *Proxy) copyClientToRemote(client io.ReadCloser, remote io.WriteCloser, 
 	}
 }
 
-func (p *Proxy) copyRemoteToClient(remote io.ReadCloser, client io.WriteCloser, wg *sync.WaitGroup, errChannel chan<- error) {
+func (p *Proxy) copyRemoteToClient(ctx context.Context, remote io.ReadCloser, client io.WriteCloser, wg *sync.WaitGroup, errChannel chan<- error) {
 	defer wg.Done()
 	defer close(errChannel)
 
@@ -124,7 +127,7 @@ func (p *Proxy) copyRemoteToClient(remote io.ReadCloser, client io.WriteCloser, 
 		errChannel <- nil
 		return
 	default:
-		if err := p.Proxyhandler.CopyFromRemoteToClient(remote, client); err != nil {
+		if err := p.Proxyhandler.CopyFromRemoteToClient(ctx, remote, client); err != nil {
 			errChannel <- fmt.Errorf("error on copy from Remote to Client: %v", err)
 			return
 		}
@@ -133,13 +136,13 @@ func (p *Proxy) copyRemoteToClient(remote io.ReadCloser, client io.WriteCloser, 
 	}
 }
 
-func socksErrorReply(conn io.ReadWriteCloser, reason RequestReplyReason) error {
+func socksErrorReply(ctx context.Context, conn io.ReadWriteCloser, reason RequestReplyReason) error {
 	// send error reply
 	repl, err := requestReply(nil, reason)
 	if err != nil {
 		return err
 	}
-	err = connectionWrite(conn, repl)
+	err = connectionWrite(ctx, conn, repl)
 	if err != nil {
 		return err
 	}
@@ -147,8 +150,8 @@ func socksErrorReply(conn io.ReadWriteCloser, reason RequestReplyReason) error {
 	return nil
 }
 
-func handleConnect(conn io.ReadWriteCloser) *Error {
-	buf, err := connectionRead(conn)
+func handleConnect(ctx context.Context, conn io.ReadWriteCloser) *Error {
+	buf, err := connectionRead(ctx, conn)
 	if err != nil {
 		return &Error{Reason: RequestReplyConnectionRefused, Err: err}
 	}
@@ -177,15 +180,15 @@ func handleConnect(conn io.ReadWriteCloser) *Error {
 	reply := make([]byte, 2)
 	reply[0] = byte(Version5)
 	reply[1] = byte(MethodNoAuthRequired)
-	err = connectionWrite(conn, reply)
+	err = connectionWrite(ctx, conn, reply)
 	if err != nil {
 		return &Error{Reason: RequestReplyGeneralFailure, Err: fmt.Errorf("could not send connect reply: %w", err)}
 	}
 	return nil
 }
 
-func handleRequest(conn io.ReadWriteCloser) (*Request, *Error) {
-	buf, err := connectionRead(conn)
+func handleRequest(ctx context.Context, conn io.ReadWriteCloser) (*Request, *Error) {
+	buf, err := connectionRead(ctx, conn)
 	if err != nil {
 		return nil, &Error{Reason: RequestReplyGeneralFailure, Err: fmt.Errorf("error on ConnectionRead: %w", err)}
 	}
@@ -196,12 +199,12 @@ func handleRequest(conn io.ReadWriteCloser) (*Request, *Error) {
 	return request, nil
 }
 
-func handleRequestReply(conn io.ReadWriteCloser, addr net.Addr) *Error {
+func handleRequestReply(ctx context.Context, conn io.ReadWriteCloser, addr net.Addr) *Error {
 	repl, err := requestReply(addr, RequestReplySucceeded)
 	if err != nil {
 		return &Error{Reason: RequestReplyGeneralFailure, Err: fmt.Errorf("error on requestReply: %w", err)}
 	}
-	err = connectionWrite(conn, repl)
+	err = connectionWrite(ctx, conn, repl)
 	if err != nil {
 		return &Error{Reason: RequestReplyGeneralFailure, Err: fmt.Errorf("error on RequestResponse: %w", err)}
 	}

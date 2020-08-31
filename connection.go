@@ -1,38 +1,50 @@
 package socks
 
 import (
+	"context"
 	"fmt"
 	"io"
 )
 
-func connectionRead(conn io.ReadWriteCloser) ([]byte, error) {
+// connectionRead reads all data from a connection
+func connectionRead(ctx context.Context, conn io.ReadCloser) ([]byte, error) {
 	var ret []byte
 	bufLen := 1024
+
 	for {
-		buf := make([]byte, bufLen)
-		i, err := conn.Read(buf)
-		if err != nil {
-			return nil, fmt.Errorf("could not read from connection: %w", err)
-		}
-		ret = append(ret, buf[:i]...)
-		if i < bufLen {
-			break
+		select {
+		case <-ctx.Done():
+			return nil, fmt.Errorf("timeout on reading on connection")
+		default:
+			buf := make([]byte, bufLen)
+			i, err := conn.Read(buf)
+			if err != nil {
+				return nil, fmt.Errorf("could not read from connection: %w", err)
+			}
+			ret = append(ret, buf[:i]...)
+			if i < bufLen {
+				return ret, nil
+			}
 		}
 	}
-	return ret, nil
 }
 
-func connectionWrite(conn io.ReadWriteCloser, data []byte) error {
+// connectionWrite makes sure to write all data to a connection
+func connectionWrite(ctx context.Context, conn io.WriteCloser, data []byte) error {
 	toWriteLeft := len(data)
 	for {
-		written, err := conn.Write(data)
-		if err != nil {
-			return err
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("timeout on writing on connection")
+		default:
+			written, err := conn.Write(data)
+			if err != nil {
+				return err
+			}
+			if written == toWriteLeft {
+				return nil
+			}
+			toWriteLeft -= written
 		}
-		if written == toWriteLeft {
-			break
-		}
-		toWriteLeft -= written
 	}
-	return nil
 }

@@ -11,8 +11,8 @@ The SOCKS protocol is defined in [rfc1928](https://tools.ietf.org/html/rfc1928)
 ```golang
 type ProxyHandler interface {
 	PreHandler(Request) (io.ReadWriteCloser, *Error)
-	CopyFromClientToRemote(io.ReadCloser, io.WriteCloser) error
-	CopyFromRemoteToClient(io.ReadCloser, io.WriteCloser) error
+	CopyFromClientToRemote(context.Context, io.ReadCloser, io.WriteCloser) error
+	CopyFromRemoteToClient(context.Context, io.ReadCloser, io.WriteCloser) error
 	Cleanup() error
 	Refresh(ctx context.Context)
 }

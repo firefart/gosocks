@@ -28,7 +28,7 @@ func (s DefaultHandler) PreHandler(request Request) (io.ReadWriteCloser, error) 
 }
 
 // CopyFromClientToRemote is the default socks5 implementation
-func (s DefaultHandler) CopyFromClientToRemote(client, remote io.ReadWriteCloser) error {
+func (s DefaultHandler) CopyFromClientToRemote(ctx context.Context, client, remote io.ReadWriteCloser) error {
 	if _, err := io.Copy(client, remote); err != nil {
 		return err
 	}
@@ -36,7 +36,7 @@ func (s DefaultHandler) CopyFromClientToRemote(client, remote io.ReadWriteCloser
 }
 
 // CopyFromRemoteToClient is the default socks5 implementation
-func (s DefaultHandler) CopyFromRemoteToClient(remote, client io.ReadWriteCloser) error {
+func (s DefaultHandler) CopyFromRemoteToClient(ctx context.Context, remote, client io.ReadWriteCloser) error {
 	if _, err := io.Copy(remote, client); err != nil {
 		return err
 	}
