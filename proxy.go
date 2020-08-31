@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"net"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -23,6 +24,7 @@ type Proxy struct {
 	ServerAddr   string
 	Done         chan struct{}
 	Proxyhandler ProxyHandler
+	Timeout      time.Duration
 }
 
 // Start is the main function to start a proxy

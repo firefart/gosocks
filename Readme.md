@@ -53,12 +53,13 @@ import (
 
 func main() {
   handler := socks.DefaultHandler{
-    Timeout: 1*time.Second,
-  }
+		Timeout: 1*time.Second,
+	}
   listen := "127.0.0.1:1080"
 	p := socks.Proxy{
 		ServerAddr:   listen,
 		Proxyhandler: handler,
+		Timeout:      1*time.Second,
 	}
 	log.Infof("starting SOCKS server on %s", listen)
 	if err := p.Start(); err != nil {
@@ -85,13 +86,14 @@ import (
 
 func main() {
   handler := MyCustomHandler{
-    Timeout: 1*time.Second,
-    PropA: "A",
-    PropB: "B",
+		Timeout: 1*time.Second,
+    PropA:  "A",
+    PropB:  "B",
   }
 	p := socks.Proxy{
 		ServerAddr:   "127.0.0.1:1080",
 		Proxyhandler: handler,
+		Timeout:      1*time.Second,
 	}
 	log.Infof("starting SOCKS server on %s", listen)
 	if err := p.Start(); err != nil {

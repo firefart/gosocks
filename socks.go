@@ -29,7 +29,7 @@ func (p *Proxy) handle(conn io.ReadWriteCloser) {
 	if err := p.socks(ctx, conn); err != nil {
 		// send error reply
 		log.Errorf("socks error: %v", err.Err)
-		if err := socksErrorReply(ctx, conn, err.Reason); err != nil {
+		if err := p.socksErrorReply(ctx, conn, err.Reason); err != nil {
 			log.Error(err)
 			return
 		}
@@ -43,11 +43,11 @@ func (p *Proxy) socks(ctx context.Context, conn io.ReadWriteCloser) *Error {
 		}
 	}()
 
-	if err := handleConnect(ctx, conn); err != nil {
+	if err := p.handleConnect(ctx, conn); err != nil {
 		return err
 	}
 
-	request, err := handleRequest(ctx, conn)
+	request, err := p.handleRequest(ctx, conn)
 	if err != nil {
 		return err
 	}
@@ -67,7 +67,7 @@ func (p *Proxy) socks(ctx context.Context, conn io.ReadWriteCloser) *Error {
 	} else {
 		ip = nil
 	}
-	err = handleRequestReply(ctx, conn, ip)
+	err = p.handleRequestReply(ctx, conn, ip)
 	if err != nil {
 		return err
 	}
@@ -136,13 +136,13 @@ func (p *Proxy) copyRemoteToClient(ctx context.Context, remote io.ReadCloser, cl
 	}
 }
 
-func socksErrorReply(ctx context.Context, conn io.ReadWriteCloser, reason RequestReplyReason) error {
+func (p *Proxy) socksErrorReply(ctx context.Context, conn io.ReadWriteCloser, reason RequestReplyReason) error {
 	// send error reply
 	repl, err := requestReply(nil, reason)
 	if err != nil {
 		return err
 	}
-	err = connectionWrite(ctx, conn, repl)
+	err = connectionWrite(ctx, conn, repl, p.Timeout)
 	if err != nil {
 		return err
 	}
@@ -150,8 +150,8 @@ func socksErrorReply(ctx context.Context, conn io.ReadWriteCloser, reason Reques
 	return nil
 }
 
-func handleConnect(ctx context.Context, conn io.ReadWriteCloser) *Error {
-	buf, err := connectionRead(ctx, conn)
+func (p *Proxy) handleConnect(ctx context.Context, conn io.ReadWriteCloser) *Error {
+	buf, err := connectionRead(ctx, conn, p.Timeout)
 	if err != nil {
 		return &Error{Reason: RequestReplyConnectionRefused, Err: err}
 	}
@@ -180,15 +180,15 @@ func handleConnect(ctx context.Context, conn io.ReadWriteCloser) *Error {
 	reply := make([]byte, 2)
 	reply[0] = byte(Version5)
 	reply[1] = byte(MethodNoAuthRequired)
-	err = connectionWrite(ctx, conn, reply)
+	err = connectionWrite(ctx, conn, reply, p.Timeout)
 	if err != nil {
 		return &Error{Reason: RequestReplyGeneralFailure, Err: fmt.Errorf("could not send connect reply: %w", err)}
 	}
 	return nil
 }
 
-func handleRequest(ctx context.Context, conn io.ReadWriteCloser) (*Request, *Error) {
-	buf, err := connectionRead(ctx, conn)
+func (p *Proxy) handleRequest(ctx context.Context, conn io.ReadWriteCloser) (*Request, *Error) {
+	buf, err := connectionRead(ctx, conn, p.Timeout)
 	if err != nil {
 		return nil, &Error{Reason: RequestReplyGeneralFailure, Err: fmt.Errorf("error on ConnectionRead: %w", err)}
 	}
@@ -199,12 +199,12 @@ func handleRequest(ctx context.Context, conn io.ReadWriteCloser) (*Request, *Err
 	return request, nil
 }
 
-func handleRequestReply(ctx context.Context, conn io.ReadWriteCloser, addr net.Addr) *Error {
+func (p *Proxy) handleRequestReply(ctx context.Context, conn io.ReadWriteCloser, addr net.Addr) *Error {
 	repl, err := requestReply(addr, RequestReplySucceeded)
 	if err != nil {
 		return &Error{Reason: RequestReplyGeneralFailure, Err: fmt.Errorf("error on requestReply: %w", err)}
 	}
-	err = connectionWrite(ctx, conn, repl)
+	err = connectionWrite(ctx, conn, repl, p.Timeout)
 	if err != nil {
 		return &Error{Reason: RequestReplyGeneralFailure, Err: fmt.Errorf("error on RequestResponse: %w", err)}
 	}

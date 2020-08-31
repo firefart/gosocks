@@ -4,47 +4,76 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"time"
 )
 
 // connectionRead reads all data from a connection
-func connectionRead(ctx context.Context, conn io.ReadCloser) ([]byte, error) {
+func connectionRead(ctx context.Context, conn io.ReadCloser, timeout time.Duration) ([]byte, error) {
 	var ret []byte
-	bufLen := 1024
 
-	for {
-		select {
-		case <-ctx.Done():
-			return nil, fmt.Errorf("timeout on reading on connection")
-		default:
+	ctx2, done := context.WithTimeout(ctx, timeout)
+	defer done()
+
+	readDone := make(chan bool, 1)
+	errChannel := make(chan error, 1)
+
+	go func() {
+		bufLen := 1024
+		for {
 			buf := make([]byte, bufLen)
 			i, err := conn.Read(buf)
 			if err != nil {
-				return nil, fmt.Errorf("could not read from connection: %w", err)
+				errChannel <- err
+				return
 			}
 			ret = append(ret, buf[:i]...)
 			if i < bufLen {
-				return ret, nil
+				readDone <- true
+				return
 			}
 		}
+	}()
+
+	select {
+	case <-ctx2.Done():
+		return nil, fmt.Errorf("timeout when reading on connection")
+	case err := <-errChannel:
+		return nil, err
+	case <-readDone:
+		return ret, nil
 	}
 }
 
 // connectionWrite makes sure to write all data to a connection
-func connectionWrite(ctx context.Context, conn io.WriteCloser, data []byte) error {
-	toWriteLeft := len(data)
-	for {
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("timeout on writing on connection")
-		default:
+func connectionWrite(ctx context.Context, conn io.WriteCloser, data []byte, timeout time.Duration) error {
+	ctx2, done := context.WithTimeout(ctx, timeout)
+	defer done()
+
+	writeDone := make(chan bool, 1)
+	errChannel := make(chan error, 1)
+
+	go func() {
+		toWriteLeft := len(data)
+		for {
 			written, err := conn.Write(data)
 			if err != nil {
-				return err
+				errChannel <- err
+				return
 			}
 			if written == toWriteLeft {
-				return nil
+				writeDone <- true
+				return
 			}
 			toWriteLeft -= written
 		}
+	}()
+
+	select {
+	case <-ctx2.Done():
+		return fmt.Errorf("timeout when writing to connection")
+	case err := <-errChannel:
+		return err
+	case <-writeDone:
+		return nil
 	}
 }
