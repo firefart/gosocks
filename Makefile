@@ -1,18 +1,24 @@
 .DEFAULT_GOAL := build
 
+.PHONY: update
 update:
 	go get -u
 	go mod tidy
 
+.PHONY: build
 build:
 	go fmt ./...
 	go vet ./...
 	go build
 
+.PHONY: lint
 lint:
-	# wget https://github.com/golangci/golangci-lint/releases/download/v1.24.0/golangci-lint-1.24.0-linux-amd64.tar.gz
-	./golangci-lint run ./...
+	@if [ ! -f "$$(go env GOPATH)/bin/golangci-lint" ]; then \
+		curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $$(go env GOPATH)/bin v1.34.1; \
+	fi
+	golangci-lint run ./...
 	go mod tidy
 
+.PHONY: test
 test: build
 	go test -race ./...

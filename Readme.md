@@ -6,6 +6,10 @@ This implemention also defines some handlers you can use to implement your own p
 
 The SOCKS protocol is defined in [rfc1928](https://tools.ietf.org/html/rfc1928)
 
+## Documentation
+
+[https://pkg.go.dev/github.com/firefart/gosocks]https://pkg.go.dev/github.com/firefart/gosocks
+
 ## Handler Interface
 
 ```golang
@@ -46,16 +50,16 @@ Refresh is called in a seperate goroutine and should loop forever to do refreshe
 package main
 
 import (
-  "time",
+	"time",
 
-  socks "github.com/firefart/gosocks"
+	socks "github.com/firefart/gosocks"
 )
 
 func main() {
-  handler := socks.DefaultHandler{
+	handler := socks.DefaultHandler{
 		Timeout: 1*time.Second,
 	}
-  listen := "127.0.0.1:1080"
+	listen := "127.0.0.1:1080"
 	p := socks.Proxy{
 		ServerAddr:   listen,
 		Proxyhandler: handler,
@@ -75,21 +79,21 @@ func main() {
 package main
 
 import (
-  "time"
-  "io"
-  "fmt"
-  "net"
-  "context"
+	"time"
+	"io"
+	"fmt"
+	"net"
+	"context"
 
-  socks "github.com/firefart/gosocks"
+	socks "github.com/firefart/gosocks"
 )
 
 func main() {
-  handler := MyCustomHandler{
+	handler := MyCustomHandler{
 		Timeout: 1*time.Second,
-    PropA:  "A",
-    PropB:  "B",
-  }
+		PropA:  "A",
+		PropB:  "B",
+	}
 	p := socks.Proxy{
 		ServerAddr:   "127.0.0.1:1080",
 		Proxyhandler: handler,
@@ -103,9 +107,9 @@ func main() {
 }
 
 type MyCustomHandler struct {
-  Timeout time.Duration,
-  PropA   string,
-  PropB   string,
+	Timeout time.Duration,
+	PropA   string,
+	PropB   string,
 }
 
 func (s *MyCustomHandler) PreHandler(request socks.Request) (io.ReadWriteCloser, *socks.Error) {
