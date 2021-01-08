@@ -8,7 +8,7 @@ The SOCKS protocol is defined in [rfc1928](https://tools.ietf.org/html/rfc1928)
 
 ## Documentation
 
-[https://pkg.go.dev/github.com/firefart/gosocks]https://pkg.go.dev/github.com/firefart/gosocks
+[https://pkg.go.dev/github.com/firefart/gosocks](https://pkg.go.dev/github.com/firefart/gosocks)
 
 ## Handler Interface
 
