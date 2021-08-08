@@ -11,8 +11,8 @@ import (
 func connectionRead(ctx context.Context, conn io.ReadCloser, timeout time.Duration) ([]byte, error) {
 	var ret []byte
 
-	ctx2, done := context.WithTimeout(ctx, timeout)
-	defer done()
+	ctxTimeout, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
 
 	readDone := make(chan bool, 1)
 	errChannel := make(chan error, 1)
@@ -35,7 +35,7 @@ func connectionRead(ctx context.Context, conn io.ReadCloser, timeout time.Durati
 	}()
 
 	select {
-	case <-ctx2.Done():
+	case <-ctxTimeout.Done():
 		return nil, fmt.Errorf("timeout when reading on connection")
 	case err := <-errChannel:
 		return nil, err
@@ -46,16 +46,18 @@ func connectionRead(ctx context.Context, conn io.ReadCloser, timeout time.Durati
 
 // connectionWrite makes sure to write all data to a connection
 func connectionWrite(ctx context.Context, conn io.WriteCloser, data []byte, timeout time.Duration) error {
-	ctx2, done := context.WithTimeout(ctx, timeout)
-	defer done()
+	ctxTimeout, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
 
 	writeDone := make(chan bool, 1)
 	errChannel := make(chan error, 1)
 
 	go func() {
 		toWriteLeft := len(data)
+		written := 0
+		var err error
 		for {
-			written, err := conn.Write(data)
+			written, err = conn.Write(data[written:toWriteLeft])
 			if err != nil {
 				errChannel <- err
 				return
@@ -69,7 +71,7 @@ func connectionWrite(ctx context.Context, conn io.WriteCloser, data []byte, time
 	}()
 
 	select {
-	case <-ctx2.Done():
+	case <-ctxTimeout.Done():
 		return fmt.Errorf("timeout when writing to connection")
 	case err := <-errChannel:
 		return err

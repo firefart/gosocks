@@ -88,7 +88,7 @@ func requestReply(in net.Addr, reply RequestReplyReason) ([]byte, error) {
 		// type
 		buf = append(buf, RequestAddressTypeIPv4.Value())
 		// error reply
-		buf = append(buf, []byte{0, 0, 0, 0, 0}...)
+		buf = append(buf, []byte{0, 0, 0, 0}...)
 	}
 	return buf, nil
 }
