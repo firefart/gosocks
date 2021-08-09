@@ -16,6 +16,8 @@ func connectionRead(ctx context.Context, conn io.ReadCloser, timeout time.Durati
 
 	readDone := make(chan bool, 1)
 	errChannel := make(chan error, 1)
+	defer close(readDone)
+	defer close(errChannel)
 
 	go func() {
 		bufLen := 1024
@@ -51,6 +53,8 @@ func connectionWrite(ctx context.Context, conn io.WriteCloser, data []byte, time
 
 	writeDone := make(chan bool, 1)
 	errChannel := make(chan error, 1)
+	defer close(writeDone)
+	defer close(errChannel)
 
 	go func() {
 		toWriteLeft := len(data)
