@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"net"
+	"net/netip"
 	"strconv"
 )
 
@@ -61,22 +62,21 @@ func requestReply(in net.Addr, reply RequestReplyReason) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		ip, err := parseIP(host)
+		ip, err := netip.ParseAddr(host)
 		if err != nil {
 			return nil, err
 		}
 
 		// type
-		switch len(ip) {
-		case 4:
+		if ip.Is4() {
 			buf = append(buf, RequestAddressTypeIPv4.Value())
-		case 16:
+		} else if ip.Is6() {
 			buf = append(buf, RequestAddressTypeIPv6.Value())
-		default:
-			return nil, fmt.Errorf("ip length %d not implemented", len(ip))
+		} else {
+			return nil, fmt.Errorf("ip %s invalid", ip.String())
 		}
 
-		buf = append(buf, ip...)
+		buf = append(buf, ip.AsSlice()...)
 		portInt, err := strconv.ParseUint(port, 10, 16)
 		if err != nil {
 			return nil, err
