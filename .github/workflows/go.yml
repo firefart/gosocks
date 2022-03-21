@@ -6,8 +6,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        go: ["1.17"]
-        node: ["17"]
+        go: ["1.18"]
+        node: ["18"]
     steps:
       - name: Set up Go ${{ matrix.go }}
         uses: actions/setup-go@v2
