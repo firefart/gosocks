@@ -8,29 +8,27 @@ import (
 	"io"
 	"net"
 	"sync"
-
-	log "github.com/sirupsen/logrus"
 )
 
 func (p *Proxy) handle(conn io.ReadWriteCloser) {
 	defer conn.Close()
 	defer func() {
-		log.Debugln("client connection closed")
+		p.Log.Debug("client connection closed")
 	}()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	if c, ok := conn.(net.Conn); ok {
-		log.Debugf("got connection from %s", c.RemoteAddr().String())
+		p.Log.Debugf("got connection from %s", c.RemoteAddr().String())
 	} else {
-		log.Debug("got connection")
+		p.Log.Debug("got connection")
 	}
 	if err := p.socks(ctx, conn); err != nil {
 		// send error reply
-		log.Errorf("socks error: %v", err.Err)
+		p.Log.Errorf("socks error: %v", err.Err)
 		if err := p.socksErrorReply(ctx, conn, err.Reason); err != nil {
-			log.Error(err)
+			p.Log.Error(err)
 			return
 		}
 	}
@@ -39,7 +37,7 @@ func (p *Proxy) handle(conn io.ReadWriteCloser) {
 func (p *Proxy) socks(ctx context.Context, conn io.ReadWriteCloser) *Error {
 	defer func() {
 		if err := p.Proxyhandler.Cleanup(); err != nil {
-			log.Errorf("error on cleanup: %v", err)
+			p.Log.Errorf("error on cleanup: %v", err)
 		}
 	}()
 
@@ -52,7 +50,7 @@ func (p *Proxy) socks(ctx context.Context, conn io.ReadWriteCloser) *Error {
 		return err
 	}
 
-	log.Infof("Connecting to %s", request.getDestinationString())
+	p.Log.Infof("Connecting to %s", request.getDestinationString())
 
 	// Should we assume connection succeed here?
 	remote, err := p.Proxyhandler.PreHandler(*request)
@@ -72,7 +70,7 @@ func (p *Proxy) socks(ctx context.Context, conn io.ReadWriteCloser) *Error {
 		return err
 	}
 
-	log.Debug("beginning of data copy")
+	p.Log.Debug("beginning of data copy")
 
 	wg := &sync.WaitGroup{}
 	errChannel1 := make(chan error, 1)
@@ -85,7 +83,7 @@ func (p *Proxy) socks(ctx context.Context, conn io.ReadWriteCloser) *Error {
 	go p.copyRemoteToClient(ctx2, remote, conn, wg, errChannel2)
 	go p.Proxyhandler.Refresh(ctx2)
 
-	log.Debug("waiting for copy to finish")
+	p.Log.Debug("waiting for copy to finish")
 	wg.Wait()
 	// stop refreshing the connection
 	cancel()
@@ -95,7 +93,7 @@ func (p *Proxy) socks(ctx context.Context, conn io.ReadWriteCloser) *Error {
 	if err := <-errChannel2; err != nil {
 		return &Error{Reason: RequestReplyHostUnreachable, Err: err}
 	}
-	log.Debug("end of connection handling")
+	p.Log.Debug("end of connection handling")
 
 	return nil
 }

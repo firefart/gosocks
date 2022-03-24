@@ -2,7 +2,6 @@ package socks
 
 import (
 	"fmt"
-	"log"
 	"net"
 )
 
@@ -33,9 +32,8 @@ func (r Request) getDestinationString() string {
 		ip := net.IP(r.DestinationAddress)
 		return fmt.Sprintf("%s:%d", ip.String(), r.DestinationPort)
 	default:
-		log.Fatalf("Address type not implemented")
+		return fmt.Sprintf("Address type %d not implemented", r.AddressType)
 	}
-	return ""
 }
 
 // Methods holds the socks5 msethod

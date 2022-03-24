@@ -6,20 +6,19 @@ import (
 	"io"
 	"net"
 	"time"
-
-	log "github.com/sirupsen/logrus"
 )
 
 // DefaultHandler is the default socks5 implementation
 type DefaultHandler struct {
 	// Timeout defines the connect timeout to the destination
 	Timeout time.Duration
+	log     Logger
 }
 
 // PreHandler is the default socks5 implementation
 func (s DefaultHandler) PreHandler(request Request) (io.ReadWriteCloser, error) {
 	target := fmt.Sprintf("%s:%d", request.DestinationAddress, request.DestinationPort)
-	log.Infof("Connecting to target %s", target)
+	s.log.Infof("Connecting to target %s", target)
 	remote, err := net.DialTimeout("tcp", target, s.Timeout)
 	if err != nil {
 		return nil, err

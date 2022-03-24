@@ -53,6 +53,7 @@ import (
 	"time",
 
 	socks "github.com/firefart/gosocks"
+	"github.com/sirupsen/logrus"
 )
 
 func main() {
@@ -64,8 +65,9 @@ func main() {
 		ServerAddr:   listen,
 		Proxyhandler: handler,
 		Timeout:      1*time.Second,
+		Log:          logrus.New(),
 	}
-	log.Infof("starting SOCKS server on %s", listen)
+	p.Log.Infof("starting SOCKS server on %s", listen)
 	if err := p.Start(); err != nil {
 		panic(err)
 	}
@@ -86,18 +88,22 @@ import (
 	"context"
 
 	socks "github.com/firefart/gosocks"
+	"github.com/sirupsen/logrus"
 )
 
 func main() {
+	log := logrus.New()
 	handler := MyCustomHandler{
 		Timeout: 1*time.Second,
 		PropA:  "A",
 		PropB:  "B",
+		Log:    log,
 	}
 	p := socks.Proxy{
 		ServerAddr:   "127.0.0.1:1080",
 		Proxyhandler: handler,
 		Timeout:      1*time.Second,
+		Log:          log,
 	}
 	log.Infof("starting SOCKS server on %s", listen)
 	if err := p.Start(); err != nil {
@@ -110,6 +116,7 @@ type MyCustomHandler struct {
 	Timeout time.Duration,
 	PropA   string,
 	PropB   string,
+	Log     Logger,
 }
 
 func (s *MyCustomHandler) PreHandler(request socks.Request) (io.ReadWriteCloser, *socks.Error) {
@@ -126,7 +133,7 @@ func (s *MyCustomHandler) Refresh(ctx context.Context) {
 	case <-ctx.Done():
 		return
 	case <-tick.C:
-		log.Debug("refreshing connection")
+		s.Log.Debug("refreshing connection")
 	}
 }
 
@@ -135,7 +142,7 @@ func (s *MyCustomHandler) CopyFromRemoteToClient(remote io.ReadCloser, client io
 	if err != nil {
 		return err
 	}
-	log.Debugf("wrote %d bytes to client", i)
+	s.Log.Debugf("wrote %d bytes to client", i)
 	return nil
 }
 
@@ -144,7 +151,7 @@ func (s *MyCustomHandler) CopyFromClientToRemote(client io.ReadCloser, remote io
 	if err != nil {
 		return err
 	}
-	log.Debugf("wrote %d bytes to remote", i)
+	s.Log.Debugf("wrote %d bytes to remote", i)
 	return nil
 }
 

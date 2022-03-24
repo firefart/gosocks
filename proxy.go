@@ -2,11 +2,10 @@ package socks
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net"
 	"time"
-
-	log "github.com/sirupsen/logrus"
 )
 
 // ProxyHandler is the interface for handling the proxy requests
@@ -25,10 +24,15 @@ type Proxy struct {
 	Done         chan struct{}
 	Proxyhandler ProxyHandler
 	Timeout      time.Duration
+	Log          Logger
 }
 
 // Start is the main function to start a proxy
 func (p *Proxy) Start() error {
+	if p.Log == nil {
+		return fmt.Errorf("please supply a logger")
+	}
+
 	listener, err := net.Listen("tcp", p.ServerAddr)
 	if err != nil {
 		return err
@@ -47,7 +51,7 @@ func (p *Proxy) run(listener net.Listener) {
 			if err == nil {
 				go p.handle(connection)
 			} else {
-				log.Errorf("Error accepting conn: %v", err)
+				p.Log.Errorf("Error accepting conn: %v", err)
 			}
 		}
 	}
@@ -55,7 +59,7 @@ func (p *Proxy) run(listener net.Listener) {
 
 // Stop stops the proxy
 func (p *Proxy) Stop() {
-	log.Warn("Stopping proxy")
+	p.Log.Warn("Stopping proxy")
 	if p.Done == nil {
 		return
 	}
