@@ -2,7 +2,6 @@ package socks
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"net"
 	"time"
@@ -30,7 +29,7 @@ type Proxy struct {
 // Start is the main function to start a proxy
 func (p *Proxy) Start() error {
 	if p.Log == nil {
-		return fmt.Errorf("please supply a logger")
+		p.Log = &NilLogger{} // allow not to set logger
 	}
 
 	listener, err := net.Listen("tcp", p.ServerAddr)
