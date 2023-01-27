@@ -142,3 +142,7 @@ type Error struct {
 
 // Error returns the underying error string
 func (e *Error) Error() string { return e.Err.Error() }
+
+func NewError(reason RequestReplyReason, err error) *Error {
+	return &Error{Reason: reason, Err: err}
+}

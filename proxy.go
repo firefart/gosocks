@@ -18,12 +18,31 @@ type ProxyHandler interface {
 
 // Proxy is the main struct
 type Proxy struct {
-	ClientAddr   string
 	ServerAddr   string
 	Done         chan struct{}
 	Proxyhandler ProxyHandler
 	Timeout      time.Duration
 	Log          Logger
+}
+
+func NewSimpleProxy(addr string, handler ProxyHandler) *Proxy {
+	return &Proxy{
+		ServerAddr:   addr,
+		Proxyhandler: handler,
+		Timeout:      time.Second * 60,
+		Log:          nil,
+		Done:         nil,
+	}
+}
+
+func NewProxy(addr string, handler ProxyHandler, done chan struct{}, timeout time.Duration, log Logger) *Proxy {
+	return &Proxy{
+		ServerAddr:   addr,
+		Done:         done,
+		Proxyhandler: handler,
+		Timeout:      timeout,
+		Log:          log,
+	}
 }
 
 // Start is the main function to start a proxy

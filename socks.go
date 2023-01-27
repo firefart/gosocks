@@ -10,7 +10,7 @@ import (
 	"sync"
 )
 
-func (p *Proxy) handle(conn io.ReadWriteCloser) {
+func (p *Proxy) handle(conn net.Conn) {
 	defer conn.Close()
 	defer func() {
 		p.Log.Debug("client connection closed")
@@ -26,15 +26,15 @@ func (p *Proxy) handle(conn io.ReadWriteCloser) {
 	}
 	if err := p.socks(ctx, conn); err != nil {
 		// send error reply
-		p.Log.Errorf("socks error: %v", err.Err)
+		p.Log.Debugf("socks error: %v", err.Err)
 		if err := p.socksErrorReply(ctx, conn, err.Reason); err != nil {
-			p.Log.Error(err)
+			p.Log.Debug(err)
 			return
 		}
 	}
 }
 
-func (p *Proxy) socks(ctx context.Context, conn io.ReadWriteCloser) *Error {
+func (p *Proxy) socks(ctx context.Context, conn net.Conn) *Error {
 	defer func() {
 		if err := p.Proxyhandler.Cleanup(); err != nil {
 			p.Log.Errorf("error on cleanup: %v", err)
@@ -50,14 +50,14 @@ func (p *Proxy) socks(ctx context.Context, conn io.ReadWriteCloser) *Error {
 		return err
 	}
 
-	p.Log.Infof("Connecting to %s", request.getDestinationString())
-
 	// Should we assume connection succeed here?
 	remote, err := p.Proxyhandler.PreHandler(*request)
 	if err != nil {
+		p.Log.Warnf("Connecting to %s failed: %v", request.getDestinationString(), err)
 		return err
 	}
 	defer remote.Close()
+	p.Log.Infof("Connection established %s - %s", conn.RemoteAddr().String(), request.getDestinationString())
 
 	var ip net.Addr
 	if r, ok := remote.(net.Conn); ok {
