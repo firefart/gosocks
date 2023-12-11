@@ -10,7 +10,7 @@ import (
 	"sync"
 )
 
-func (p *Proxy) handle(conn io.ReadWriteCloser) {
+func (p *Proxy) handle(conn net.Conn) {
 	defer conn.Close()
 	defer func() {
 		p.Log.Debug("client connection closed")
@@ -19,11 +19,8 @@ func (p *Proxy) handle(conn io.ReadWriteCloser) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	if c, ok := conn.(net.Conn); ok {
-		p.Log.Debugf("got connection from %s", c.RemoteAddr().String())
-	} else {
-		p.Log.Debug("got connection")
-	}
+	p.Log.Debugf("got connection from %s", conn.RemoteAddr().String())
+
 	if err := p.socks(ctx, conn); err != nil {
 		// send error reply
 		p.Log.Errorf("socks error: %v", err.Err)
@@ -34,10 +31,10 @@ func (p *Proxy) handle(conn io.ReadWriteCloser) {
 	}
 }
 
-func (p *Proxy) socks(ctx context.Context, conn io.ReadWriteCloser) *Error {
+func (p *Proxy) socks(ctx context.Context, conn net.Conn) *Error {
 	defer func() {
-		if err := p.Proxyhandler.Cleanup(); err != nil {
-			p.Log.Errorf("error on cleanup: %v", err)
+		if err := p.Proxyhandler.Close(); err != nil {
+			p.Log.Errorf("error on close: %v", err)
 		}
 	}()
 
@@ -50,22 +47,17 @@ func (p *Proxy) socks(ctx context.Context, conn io.ReadWriteCloser) *Error {
 		return err
 	}
 
-	p.Log.Infof("Connecting to %s", request.getDestinationString())
+	p.Log.Infof("Connecting to %s", request.GetDestinationString())
 
 	// Should we assume connection succeed here?
-	remote, err := p.Proxyhandler.PreHandler(*request)
+	remote, err := p.Proxyhandler.Init(*request)
 	if err != nil {
 		return err
 	}
 	defer remote.Close()
+	p.Log.Infof("Connection established %s - %s", conn.RemoteAddr().String(), request.GetDestinationString())
 
-	var ip net.Addr
-	if r, ok := remote.(net.Conn); ok {
-		ip = r.LocalAddr()
-	} else {
-		ip = nil
-	}
-	err = p.handleRequestReply(ctx, conn, ip)
+	err = p.handleRequestReply(ctx, conn, request)
 	if err != nil {
 		return err
 	}
@@ -107,7 +99,7 @@ func (p *Proxy) copyClientToRemote(ctx context.Context, client io.ReadCloser, re
 		errChannel <- nil
 		return
 	default:
-		if err := p.Proxyhandler.CopyFromClientToRemote(ctx, client, remote); err != nil {
+		if err := p.Proxyhandler.ReadFromClient(ctx, client, remote); err != nil {
 			errChannel <- fmt.Errorf("error on copy from Client to Remote: %v", err)
 			return
 		}
@@ -125,7 +117,7 @@ func (p *Proxy) copyRemoteToClient(ctx context.Context, remote io.ReadCloser, cl
 		errChannel <- nil
 		return
 	default:
-		if err := p.Proxyhandler.CopyFromRemoteToClient(ctx, remote, client); err != nil {
+		if err := p.Proxyhandler.ReadFromRemote(ctx, remote, client); err != nil {
 			errChannel <- fmt.Errorf("error on copy from Remote to Client: %v", err)
 			return
 		}
@@ -197,8 +189,8 @@ func (p *Proxy) handleRequest(ctx context.Context, conn io.ReadWriteCloser) (*Re
 	return request, nil
 }
 
-func (p *Proxy) handleRequestReply(ctx context.Context, conn io.ReadWriteCloser, addr net.Addr) *Error {
-	repl, err := requestReply(addr, RequestReplySucceeded)
+func (p *Proxy) handleRequestReply(ctx context.Context, conn io.ReadWriteCloser, request *Request) *Error {
+	repl, err := requestReply(request, RequestReplySucceeded)
 	if err != nil {
 		return &Error{Reason: RequestReplyGeneralFailure, Err: fmt.Errorf("error on requestReply: %w", err)}
 	}

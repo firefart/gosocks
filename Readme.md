@@ -14,29 +14,29 @@ The SOCKS protocol is defined in [rfc1928](https://tools.ietf.org/html/rfc1928)
 
 ```golang
 type ProxyHandler interface {
-	PreHandler(Request) (io.ReadWriteCloser, *Error)
-	CopyFromClientToRemote(context.Context, io.ReadCloser, io.WriteCloser) error
-	CopyFromRemoteToClient(context.Context, io.ReadCloser, io.WriteCloser) error
-	Cleanup() error
+	Init(Request) (io.ReadWriteCloser, *Error)
+	ReadFromClient(context.Context, io.ReadCloser, io.WriteCloser) error
+	ReadFromRemote(context.Context, io.ReadCloser, io.WriteCloser) error
+	Close() error
 	Refresh(ctx context.Context)
 }
 ```
 
-### PreHandler
+### Init
 
-PreHandler is called before the copy operations and it should return a connection to the target that is ready to receive data.
+Init is called before the copy operations and it should return a connection to the target that is ready to receive data.
 
-### CopyFromClientToRemote
+### ReadFromClient
 
-CopyFromClientToRemote is the method that handles the data copy from the client (you) to the remote connection. You can see the `DefaultHandler` for a sample implementation.
+ReadFromClient is the method that handles the data copy from the client (you) to the remote connection. You can see the `DefaultHandler` for a sample implementation.
 
-### CopyFromRemoteToClient
+### ReadFromRemote
 
-CopyFromRemoteToClient is the method that handles the data copy from the remote connection to the client (you). You can see the `DefaultHandler` for a sample implementation.
+ReadFromRemote is the method that handles the data copy from the remote connection to the client (you). You can see the `DefaultHandler` for a sample implementation.
 
-### Cleanup
+### Close
 
-Cleanup is called after the request finishes or errors out. It is used to clean up any connections in your custom implementation.
+Close is called after the request finishes or errors out. It is used to clean up any connections in your custom implementation.
 
 ### Refresh
 
@@ -119,7 +119,7 @@ type MyCustomHandler struct {
 	Log     Logger,
 }
 
-func (s *MyCustomHandler) PreHandler(request socks.Request) (io.ReadWriteCloser, *socks.Error) {
+func (s *MyCustomHandler) Init(request socks.Request) (io.ReadWriteCloser, *socks.Error) {
 	conn, err := net.DialTimeout("tcp", s.Server, s.Timeout)
 	if err != nil {
 		return nil, &socks.SocksError{Reason: socks.RequestReplyHostUnreachable, Err: fmt.Errorf("error on connecting to server: %w", err)}
@@ -137,7 +137,7 @@ func (s *MyCustomHandler) Refresh(ctx context.Context) {
 	}
 }
 
-func (s *MyCustomHandler) CopyFromRemoteToClient(remote io.ReadCloser, client io.WriteCloser) error {
+func (s *MyCustomHandler) ReadFromRemote(remote io.ReadCloser, client io.WriteCloser) error {
 	i, err := io.Copy(client, remote)
 	if err != nil {
 		return err
@@ -146,7 +146,7 @@ func (s *MyCustomHandler) CopyFromRemoteToClient(remote io.ReadCloser, client io
 	return nil
 }
 
-func (s *MyCustomHandler) CopyFromClientToRemote(client io.ReadCloser, remote io.WriteCloser) error {
+func (s *MyCustomHandler) ReadFromClient(client io.ReadCloser, remote io.WriteCloser) error {
 	i, err := io.Copy(remote, client)
 	if err != nil {
 		return err
@@ -155,7 +155,7 @@ func (s *MyCustomHandler) CopyFromClientToRemote(client io.ReadCloser, remote io
 	return nil
 }
 
-func (s *MyCustomHandler) Cleanup() error {
+func (s *MyCustomHandler) Close() error {
 	return nil
 }
 ```

@@ -21,7 +21,7 @@ type Request struct {
 	DestinationPort    uint16
 }
 
-func (r Request) getDestinationString() string {
+func (r Request) GetDestinationString() string {
 	switch r.AddressType {
 	case RequestAddressTypeDomainname:
 		return fmt.Sprintf("%s:%d", r.DestinationAddress, r.DestinationPort)
@@ -142,3 +142,7 @@ type Error struct {
 
 // Error returns the underying error string
 func (e *Error) Error() string { return e.Err.Error() }
+
+func NewError(reason RequestReplyReason, err error) *Error {
+	return &Error{Reason: reason, Err: err}
+}
