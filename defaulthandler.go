@@ -16,12 +16,12 @@ type DefaultHandler struct {
 }
 
 // Init is the default socks5 implementation
-func (s DefaultHandler) Init(request Request) (io.ReadWriteCloser, error) {
+func (s DefaultHandler) Init(request Request) (io.ReadWriteCloser, *Error) {
 	target := fmt.Sprintf("%s:%d", request.DestinationAddress, request.DestinationPort)
 	s.log.Infof("Connecting to target %s", target)
 	remote, err := net.DialTimeout("tcp", target, s.Timeout)
 	if err != nil {
-		return nil, err
+		return nil, NewError(RequestReplyNetworkUnreachable, err)
 	}
 	return remote, nil
 }
