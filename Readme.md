@@ -137,7 +137,7 @@ func (s *MyCustomHandler) Refresh(ctx context.Context) {
 	}
 }
 
-func (s *MyCustomHandler) ReadFromRemote(remote io.ReadCloser, client io.WriteCloser) error {
+func (s *MyCustomHandler) ReadFromRemote(ctx context.Context, remote io.ReadCloser, client io.WriteCloser) error {
 	i, err := io.Copy(client, remote)
 	if err != nil {
 		return err
@@ -146,7 +146,7 @@ func (s *MyCustomHandler) ReadFromRemote(remote io.ReadCloser, client io.WriteCl
 	return nil
 }
 
-func (s *MyCustomHandler) ReadFromClient(client io.ReadCloser, remote io.WriteCloser) error {
+func (s *MyCustomHandler) ReadFromClient(ctx context.Context, client io.ReadCloser, remote io.WriteCloser) error {
 	i, err := io.Copy(remote, client)
 	if err != nil {
 		return err
