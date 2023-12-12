@@ -10,7 +10,7 @@ import (
 	"sync"
 )
 
-func (p *Proxy) handle(conn io.ReadWriteCloser) {
+func (p *Proxy) handle(conn net.Conn) {
 	defer conn.Close()
 	defer func() {
 		p.Log.Debug("client connection closed")
@@ -19,11 +19,8 @@ func (p *Proxy) handle(conn io.ReadWriteCloser) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	if c, ok := conn.(net.Conn); ok {
-		p.Log.Debugf("got connection from %s", c.RemoteAddr().String())
-	} else {
-		p.Log.Debug("got connection")
-	}
+	p.Log.Debugf("got connection from %s", conn.RemoteAddr().String())
+
 	if err := p.socks(ctx, conn); err != nil {
 		// send error reply
 		p.Log.Errorf("socks error: %v", err.Err)
@@ -34,10 +31,10 @@ func (p *Proxy) handle(conn io.ReadWriteCloser) {
 	}
 }
 
-func (p *Proxy) socks(ctx context.Context, conn io.ReadWriteCloser) *Error {
+func (p *Proxy) socks(ctx context.Context, conn net.Conn) *Error {
 	defer func() {
-		if err := p.Proxyhandler.Cleanup(); err != nil {
-			p.Log.Errorf("error on cleanup: %v", err)
+		if err := p.Proxyhandler.Close(); err != nil {
+			p.Log.Errorf("error on close: %v", err)
 		}
 	}()
 
@@ -50,22 +47,17 @@ func (p *Proxy) socks(ctx context.Context, conn io.ReadWriteCloser) *Error {
 		return err
 	}
 
-	p.Log.Infof("Connecting to %s", request.getDestinationString())
+	p.Log.Infof("Connecting to %s", request.GetDestinationString())
 
 	// Should we assume connection succeed here?
-	remote, err := p.Proxyhandler.PreHandler(*request)
+	remote, err := p.Proxyhandler.Init(*request)
 	if err != nil {
 		return err
 	}
 	defer remote.Close()
+	p.Log.Infof("Connection established %s - %s", conn.RemoteAddr().String(), request.GetDestinationString())
 
-	var ip net.Addr
-	if r, ok := remote.(net.Conn); ok {
-		ip = r.LocalAddr()
-	} else {
-		ip = nil
-	}
-	err = p.handleRequestReply(ctx, conn, ip)
+	err = p.handleRequestReply(ctx, conn, request)
 	if err != nil {
 		return err
 	}
@@ -88,10 +80,10 @@ func (p *Proxy) socks(ctx context.Context, conn io.ReadWriteCloser) *Error {
 	// stop refreshing the connection
 	cancel()
 	if err := <-errChannel1; err != nil {
-		return &Error{Reason: RequestReplyHostUnreachable, Err: err}
+		return NewError(RequestReplyHostUnreachable, err)
 	}
 	if err := <-errChannel2; err != nil {
-		return &Error{Reason: RequestReplyHostUnreachable, Err: err}
+		return NewError(RequestReplyHostUnreachable, err)
 	}
 	p.Log.Debug("end of connection handling")
 
@@ -107,7 +99,7 @@ func (p *Proxy) copyClientToRemote(ctx context.Context, client io.ReadCloser, re
 		errChannel <- nil
 		return
 	default:
-		if err := p.Proxyhandler.CopyFromClientToRemote(ctx, client, remote); err != nil {
+		if err := p.Proxyhandler.ReadFromClient(ctx, client, remote); err != nil {
 			errChannel <- fmt.Errorf("error on copy from Client to Remote: %v", err)
 			return
 		}
@@ -125,7 +117,7 @@ func (p *Proxy) copyRemoteToClient(ctx context.Context, remote io.ReadCloser, cl
 		errChannel <- nil
 		return
 	default:
-		if err := p.Proxyhandler.CopyFromRemoteToClient(ctx, remote, client); err != nil {
+		if err := p.Proxyhandler.ReadFromRemote(ctx, remote, client); err != nil {
 			errChannel <- fmt.Errorf("error on copy from Remote to Client: %v", err)
 			return
 		}
@@ -151,18 +143,18 @@ func (p *Proxy) socksErrorReply(ctx context.Context, conn io.ReadWriteCloser, re
 func (p *Proxy) handleConnect(ctx context.Context, conn io.ReadWriteCloser) *Error {
 	buf, err := connectionRead(ctx, conn, p.Timeout)
 	if err != nil {
-		return &Error{Reason: RequestReplyConnectionRefused, Err: err}
+		return NewError(RequestReplyConnectionRefused, err)
 	}
 	header, err := parseHeader(buf)
 	if err != nil {
-		return &Error{Reason: RequestReplyConnectionRefused, Err: err}
+		return NewError(RequestReplyConnectionRefused, err)
 	}
 	switch header.Version {
 	case Version4:
-		return &Error{Reason: RequestReplyCommandNotSupported, Err: fmt.Errorf("socks4 not yet implemented")}
+		return NewError(RequestReplyCommandNotSupported, fmt.Errorf("socks4 not yet implemented"))
 	case Version5:
 	default:
-		return &Error{Reason: RequestReplyCommandNotSupported, Err: fmt.Errorf("version %#x not yet implemented", byte(header.Version))}
+		return NewError(RequestReplyCommandNotSupported, fmt.Errorf("version %#x not yet implemented", byte(header.Version)))
 	}
 
 	methodSupported := false
@@ -173,14 +165,14 @@ func (p *Proxy) handleConnect(ctx context.Context, conn io.ReadWriteCloser) *Err
 		}
 	}
 	if !methodSupported {
-		return &Error{Reason: RequestReplyMethodNotSupported, Err: fmt.Errorf("we currently only support no authentication")}
+		return NewError(RequestReplyMethodNotSupported, fmt.Errorf("we currently only support no authentication"))
 	}
 	reply := make([]byte, 2)
 	reply[0] = byte(Version5)
 	reply[1] = byte(MethodNoAuthRequired)
 	err = connectionWrite(ctx, conn, reply, p.Timeout)
 	if err != nil {
-		return &Error{Reason: RequestReplyGeneralFailure, Err: fmt.Errorf("could not send connect reply: %w", err)}
+		return NewError(RequestReplyGeneralFailure, fmt.Errorf("could not send connect reply: %w", err))
 	}
 	return nil
 }
@@ -188,7 +180,7 @@ func (p *Proxy) handleConnect(ctx context.Context, conn io.ReadWriteCloser) *Err
 func (p *Proxy) handleRequest(ctx context.Context, conn io.ReadWriteCloser) (*Request, *Error) {
 	buf, err := connectionRead(ctx, conn, p.Timeout)
 	if err != nil {
-		return nil, &Error{Reason: RequestReplyGeneralFailure, Err: fmt.Errorf("error on ConnectionRead: %w", err)}
+		return nil, NewError(RequestReplyGeneralFailure, fmt.Errorf("error on ConnectionRead: %w", err))
 	}
 	request, err2 := parseRequest(buf)
 	if err2 != nil {
@@ -197,14 +189,14 @@ func (p *Proxy) handleRequest(ctx context.Context, conn io.ReadWriteCloser) (*Re
 	return request, nil
 }
 
-func (p *Proxy) handleRequestReply(ctx context.Context, conn io.ReadWriteCloser, addr net.Addr) *Error {
-	repl, err := requestReply(addr, RequestReplySucceeded)
+func (p *Proxy) handleRequestReply(ctx context.Context, conn io.ReadWriteCloser, request *Request) *Error {
+	repl, err := requestReply(request, RequestReplySucceeded)
 	if err != nil {
-		return &Error{Reason: RequestReplyGeneralFailure, Err: fmt.Errorf("error on requestReply: %w", err)}
+		return NewError(RequestReplyGeneralFailure, fmt.Errorf("error on requestReply: %w", err))
 	}
 	err = connectionWrite(ctx, conn, repl, p.Timeout)
 	if err != nil {
-		return &Error{Reason: RequestReplyGeneralFailure, Err: fmt.Errorf("error on RequestResponse: %w", err)}
+		return NewError(RequestReplyGeneralFailure, fmt.Errorf("error on RequestResponse: %w", err))
 	}
 
 	return nil

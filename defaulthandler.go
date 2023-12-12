@@ -15,35 +15,35 @@ type DefaultHandler struct {
 	log     Logger
 }
 
-// PreHandler is the default socks5 implementation
-func (s DefaultHandler) PreHandler(request Request) (io.ReadWriteCloser, error) {
+// Init is the default socks5 implementation
+func (s DefaultHandler) Init(request Request) (io.ReadWriteCloser, *Error) {
 	target := fmt.Sprintf("%s:%d", request.DestinationAddress, request.DestinationPort)
 	s.log.Infof("Connecting to target %s", target)
 	remote, err := net.DialTimeout("tcp", target, s.Timeout)
 	if err != nil {
-		return nil, err
+		return nil, NewError(RequestReplyNetworkUnreachable, err)
 	}
 	return remote, nil
 }
 
-// CopyFromClientToRemote is the default socks5 implementation
-func (s DefaultHandler) CopyFromClientToRemote(ctx context.Context, client, remote io.ReadWriteCloser) error {
-	if _, err := io.Copy(client, remote); err != nil {
-		return err
-	}
-	return nil
-}
-
-// CopyFromRemoteToClient is the default socks5 implementation
-func (s DefaultHandler) CopyFromRemoteToClient(ctx context.Context, remote, client io.ReadWriteCloser) error {
+// ReadFromClient is the default socks5 implementation
+func (s DefaultHandler) ReadFromClient(ctx context.Context, client io.ReadCloser, remote io.WriteCloser) error {
 	if _, err := io.Copy(remote, client); err != nil {
 		return err
 	}
 	return nil
 }
 
-// Cleanup is the default socks5 implementation
-func (s DefaultHandler) Cleanup() error {
+// ReadFromRemote is the default socks5 implementation
+func (s DefaultHandler) ReadFromRemote(ctx context.Context, remote io.ReadCloser, client io.WriteCloser) error {
+	if _, err := io.Copy(client, remote); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Close is the default socks5 implementation
+func (s DefaultHandler) Close() error {
 	return nil
 }
 

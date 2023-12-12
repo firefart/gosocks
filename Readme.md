@@ -14,148 +14,34 @@ The SOCKS protocol is defined in [rfc1928](https://tools.ietf.org/html/rfc1928)
 
 ```golang
 type ProxyHandler interface {
-	PreHandler(Request) (io.ReadWriteCloser, *Error)
-	CopyFromClientToRemote(context.Context, io.ReadCloser, io.WriteCloser) error
-	CopyFromRemoteToClient(context.Context, io.ReadCloser, io.WriteCloser) error
-	Cleanup() error
+	Init(Request) (io.ReadWriteCloser, *Error)
+	ReadFromClient(context.Context, io.ReadCloser, io.WriteCloser) error
+	ReadFromRemote(context.Context, io.ReadCloser, io.WriteCloser) error
+	Close() error
 	Refresh(ctx context.Context)
 }
 ```
 
-### PreHandler
+### Init
 
-PreHandler is called before the copy operations and it should return a connection to the target that is ready to receive data.
+Init is called before the copy operations and it should return a connection to the target that is ready to receive data.
 
-### CopyFromClientToRemote
+### ReadFromClient
 
-CopyFromClientToRemote is the method that handles the data copy from the client (you) to the remote connection. You can see the `DefaultHandler` for a sample implementation.
+ReadFromClient is the method that handles the data copy from the client (you) to the remote connection. You can see the `DefaultHandler` for a sample implementation.
 
-### CopyFromRemoteToClient
+### ReadFromRemote
 
-CopyFromRemoteToClient is the method that handles the data copy from the remote connection to the client (you). You can see the `DefaultHandler` for a sample implementation.
+ReadFromRemote is the method that handles the data copy from the remote connection to the client (you). You can see the `DefaultHandler` for a sample implementation.
 
-### Cleanup
+### Close
 
-Cleanup is called after the request finishes or errors out. It is used to clean up any connections in your custom implementation.
+Close is called after the request finishes or errors out. It is used to clean up any connections in your custom implementation.
 
 ### Refresh
 
 Refresh is called in a seperate goroutine and should loop forever to do refreshes of the connection if needed. The passed in context is cancelled after the request so be sure to check on the Done event.
 
-## Usage
+## Examples
 
-### Default Usage
-
-```golang
-package main
-
-import (
-	"time",
-
-	socks "github.com/firefart/gosocks"
-	"github.com/sirupsen/logrus"
-)
-
-func main() {
-	handler := socks.DefaultHandler{
-		Timeout: 1*time.Second,
-	}
-	listen := "127.0.0.1:1080"
-	p := socks.Proxy{
-		ServerAddr:   listen,
-		Proxyhandler: handler,
-		Timeout:      1*time.Second,
-		Log:          logrus.New(),
-	}
-	p.Log.Infof("starting SOCKS server on %s", listen)
-	if err := p.Start(); err != nil {
-		panic(err)
-	}
-	<-p.Done
-}
-```
-
-### Usage with custom handlers
-
-```golang
-package main
-
-import (
-	"time"
-	"io"
-	"fmt"
-	"net"
-	"context"
-
-	socks "github.com/firefart/gosocks"
-	"github.com/sirupsen/logrus"
-)
-
-func main() {
-	log := logrus.New()
-	handler := MyCustomHandler{
-		Timeout: 1*time.Second,
-		PropA:  "A",
-		PropB:  "B",
-		Log:    log,
-	}
-	p := socks.Proxy{
-		ServerAddr:   "127.0.0.1:1080",
-		Proxyhandler: handler,
-		Timeout:      1*time.Second,
-		Log:          log,
-	}
-	log.Infof("starting SOCKS server on %s", listen)
-	if err := p.Start(); err != nil {
-		panic(err)
-	}
-	<-p.Done
-}
-
-type MyCustomHandler struct {
-	Timeout time.Duration,
-	PropA   string,
-	PropB   string,
-	Log     Logger,
-}
-
-func (s *MyCustomHandler) PreHandler(request socks.Request) (io.ReadWriteCloser, *socks.Error) {
-	conn, err := net.DialTimeout("tcp", s.Server, s.Timeout)
-	if err != nil {
-		return nil, &socks.SocksError{Reason: socks.RequestReplyHostUnreachable, Err: fmt.Errorf("error on connecting to server: %w", err)}
-	}
-	return conn, nil
-}
-
-func (s *MyCustomHandler) Refresh(ctx context.Context) {
-	tick := time.NewTicker(10 * time.Second)
-	select {
-	case <-ctx.Done():
-		return
-	case <-tick.C:
-		s.Log.Debug("refreshing connection")
-	}
-}
-
-func (s *MyCustomHandler) CopyFromRemoteToClient(remote io.ReadCloser, client io.WriteCloser) error {
-	i, err := io.Copy(client, remote)
-	if err != nil {
-		return err
-	}
-	s.Log.Debugf("wrote %d bytes to client", i)
-	return nil
-}
-
-func (s *MyCustomHandler) CopyFromClientToRemote(client io.ReadCloser, remote io.WriteCloser) error {
-	i, err := io.Copy(remote, client)
-	if err != nil {
-		return err
-	}
-	s.Log.Debugf("wrote %d bytes to remote", i)
-	return nil
-}
-
-func (s *MyCustomHandler) Cleanup() error {
-	return nil
-}
-```
+For examples please have a look at the examples folder
