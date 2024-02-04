@@ -45,7 +45,7 @@ type MyCustomHandler struct {
 func (s MyCustomHandler) Init(ctx context.Context, request socks.Request) (io.ReadWriteCloser, *socks.Error) {
 	conn, err := net.DialTimeout("tcp", s.Server, s.Timeout)
 	if err != nil {
-		return nil, &socks.Error{Reason: socks.RequestReplyHostUnreachable, Err: fmt.Errorf("error on connecting to server: %w", err)}
+		return nil, socks.NewError(socks.RequestReplyHostUnreachable, fmt.Errorf("error on connecting to server: %w", err))
 	}
 	return conn, nil
 }
