@@ -42,6 +42,6 @@ Close is called after the request finishes or errors out. It is used to clean up
 
 Refresh is called in a seperate goroutine and should loop forever to do refreshes of the connection if needed. The passed in context is cancelled after the request so be sure to check on the Done event.
 
-## Usage
+## Examples
 
-Please see the `example` directory.
+Please see the `examples` directory.

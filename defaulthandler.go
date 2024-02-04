@@ -24,7 +24,7 @@ func (s DefaultHandler) Init(ctx context.Context, request Request) (io.ReadWrite
 	}
 	remote, err := net.DialTimeout("tcp", target, s.Timeout)
 	if err != nil {
-		return nil, &Error{Reason: RequestReplyHostUnreachable, Err: fmt.Errorf("error on connecting to server: %w", err)}
+		return nil, NewError(RequestReplyHostUnreachable, fmt.Errorf("error on connecting to server: %w", err))
 	}
 	return remote, nil
 }

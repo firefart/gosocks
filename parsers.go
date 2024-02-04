@@ -51,7 +51,7 @@ the address is a version-6 IP address, with a length of 16 octets.
 func parseRequest(buf []byte) (*Request, *Error) {
 	r := &Request{}
 	if len(buf) < 7 {
-		return nil, &Error{Reason: RequestReplyConnectionRefused, Err: fmt.Errorf("invalid request header length (%d)", len(buf))}
+		return nil, NewError(RequestReplyConnectionRefused, fmt.Errorf("invalid request header length (%d)", len(buf)))
 	}
 	version := buf[0]
 	switch version {
@@ -60,7 +60,7 @@ func parseRequest(buf []byte) (*Request, *Error) {
 	case byte(Version5):
 		r.Version = Version5
 	default:
-		return nil, &Error{Reason: RequestReplyConnectionRefused, Err: fmt.Errorf("Invalid Socks version %#x", version)}
+		return nil, NewError(RequestReplyConnectionRefused, fmt.Errorf("Invalid Socks version %#x", version))
 	}
 	cmd := buf[1]
 	switch cmd {
@@ -71,7 +71,7 @@ func parseRequest(buf []byte) (*Request, *Error) {
 	// case byte(RequestCmdAssociate):
 	// 	r.Command = RequestCmdAssociate
 	default:
-		return nil, &Error{Reason: RequestReplyCommandNotSupported, Err: fmt.Errorf("Command %#x not supported", cmd)}
+		return nil, NewError(RequestReplyCommandNotSupported, fmt.Errorf("Command %#x not supported", cmd))
 	}
 	addresstype := buf[3]
 	switch addresstype {
@@ -82,7 +82,7 @@ func parseRequest(buf []byte) (*Request, *Error) {
 	case byte(RequestAddressTypeDomainname):
 		r.AddressType = RequestAddressTypeDomainname
 	default:
-		return nil, &Error{Reason: RequestReplyAddressTypeNotSupported, Err: fmt.Errorf("AddressType %#x not supported", addresstype)}
+		return nil, NewError(RequestReplyAddressTypeNotSupported, fmt.Errorf("AddressType %#x not supported", addresstype))
 	}
 
 	switch r.AddressType {
@@ -100,7 +100,7 @@ func parseRequest(buf []byte) (*Request, *Error) {
 		p := buf[5+addrLen : 5+addrLen+2]
 		r.DestinationPort = binary.BigEndian.Uint16(p)
 	default:
-		return nil, &Error{Reason: RequestReplyAddressTypeNotSupported, Err: fmt.Errorf("AddressType %#x not supported", addresstype)}
+		return nil, NewError(RequestReplyAddressTypeNotSupported, fmt.Errorf("AddressType %#x not supported", addresstype))
 	}
 
 	return r, nil

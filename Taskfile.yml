@@ -38,8 +38,8 @@ tasks:
 
   build-examples:
     cmds:
-      - go build example/default/main.go
-      - go build example/custom/main.go
+      - go build examples/default/main.go
+      - go build examples/custom/main.go
 
   test:
     env:
