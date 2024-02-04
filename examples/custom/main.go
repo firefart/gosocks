@@ -62,11 +62,13 @@ func (s MyCustomHandler) Init(ctx context.Context, request socks.Request) (io.Re
 
 func (s MyCustomHandler) Refresh(ctx context.Context) {
 	tick := time.NewTicker(10 * time.Second)
-	select {
-	case <-ctx.Done():
-		return
-	case <-tick.C:
-		s.Log.Debug("refreshing connection")
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-tick.C:
+			s.Log.Debug("refreshing connection")
+		}
 	}
 }
 
