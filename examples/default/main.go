@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"time"
 
@@ -31,7 +32,7 @@ func main() {
 		Log:          log,
 	}
 	p.Log.Infof("starting SOCKS server on %s", listen)
-	if err := p.Start(); err != nil {
+	if err := p.Start(context.Background()); err != nil {
 		panic(err)
 	}
 	<-p.Done

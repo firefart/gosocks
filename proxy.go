@@ -26,7 +26,7 @@ type Proxy struct {
 }
 
 // Start is the main function to start a proxy
-func (p *Proxy) Start() error {
+func (p *Proxy) Start(ctx context.Context) error {
 	if p.Log == nil {
 		p.Log = &NilLogger{} // allow not to set logger
 	}
@@ -35,11 +35,11 @@ func (p *Proxy) Start() error {
 	if err != nil {
 		return err
 	}
-	go p.run(listener)
+	go p.run(ctx, listener)
 	return nil
 }
 
-func (p *Proxy) run(listener net.Listener) {
+func (p *Proxy) run(ctx context.Context, listener net.Listener) {
 	for {
 		select {
 		case <-p.Done:
@@ -47,7 +47,7 @@ func (p *Proxy) run(listener net.Listener) {
 		default:
 			connection, err := listener.Accept()
 			if err == nil {
-				go p.handle(connection)
+				go p.handle(ctx, connection)
 			} else {
 				p.Log.Errorf("Error accepting conn: %v", err)
 			}

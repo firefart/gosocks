@@ -38,7 +38,7 @@ func main() {
 		Log:          log,
 	}
 	log.Infof("starting SOCKS server on %s", p.ServerAddr)
-	if err := p.Start(); err != nil {
+	if err := p.Start(context.Background()); err != nil {
 		panic(err)
 	}
 	<-p.Done

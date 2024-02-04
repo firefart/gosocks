@@ -10,13 +10,13 @@ import (
 	"sync"
 )
 
-func (p *Proxy) handle(conn net.Conn) {
+func (p *Proxy) handle(ctx context.Context, conn net.Conn) {
 	defer conn.Close()
 	defer func() {
 		p.Log.Debug("client connection closed")
 	}()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	p.Log.Debugf("got connection from %s", conn.RemoteAddr().String())
