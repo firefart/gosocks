@@ -2,6 +2,7 @@ package socks
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -12,38 +13,62 @@ import (
 type DefaultHandler struct {
 	// Timeout defines the connect timeout to the destination
 	Timeout time.Duration
-	log     Logger
+	Log     Logger
 }
 
 // Init is the default socks5 implementation
-func (s DefaultHandler) Init(request Request) (io.ReadWriteCloser, error) {
-	target := fmt.Sprintf("%s:%d", request.DestinationAddress, request.DestinationPort)
-	s.log.Infof("Connecting to target %s", target)
+func (s DefaultHandler) Init(ctx context.Context, request Request) (io.ReadWriteCloser, *Error) {
+	target := request.GetDestinationString()
+	if s.Log != nil {
+		s.Log.Infof("Connecting to target %s", target)
+	}
 	remote, err := net.DialTimeout("tcp", target, s.Timeout)
 	if err != nil {
-		return nil, err
+		return nil, &Error{Reason: RequestReplyHostUnreachable, Err: fmt.Errorf("error on connecting to server: %w", err)}
 	}
 	return remote, nil
 }
 
+const bufferSize = 10240
+
 // ReadFromClient is the default socks5 implementation
 func (s DefaultHandler) ReadFromClient(ctx context.Context, client io.ReadCloser, remote io.WriteCloser) error {
-	if _, err := io.Copy(remote, client); err != nil {
-		return err
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+			i, err := io.CopyN(remote, client, bufferSize)
+			if errors.Is(err, io.EOF) {
+				return nil
+			} else if err != nil {
+				return fmt.Errorf("ReadFromClient: %w", err)
+			}
+			s.Log.Debugf("[socks] wrote %d bytes to remote", i)
+		}
 	}
-	return nil
 }
 
 // ReadFromRemote is the default socks5 implementation
 func (s DefaultHandler) ReadFromRemote(ctx context.Context, remote io.ReadCloser, client io.WriteCloser) error {
-	if _, err := io.Copy(client, remote); err != nil {
-		return err
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+			i, err := io.CopyN(client, remote, bufferSize)
+			if errors.Is(err, io.EOF) {
+				return nil
+			} else if err != nil {
+				return fmt.Errorf("ReadFromRemote: %w", err)
+			}
+			s.Log.Debugf("[socks] wrote %d bytes to client", i)
+		}
 	}
-	return nil
 }
 
 // Close is the default socks5 implementation
-func (s DefaultHandler) Close() error {
+func (s DefaultHandler) Close(ctx context.Context) error {
 	return nil
 }
 
