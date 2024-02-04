@@ -2,17 +2,30 @@ package main
 
 import (
 	"context"
+	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"net"
 	"time"
 
 	socks "github.com/firefart/gosocks"
+	"github.com/sirupsen/logrus"
 )
 
 func main() {
-	log := &socks.NilLogger{}
+	debugMode := flag.Bool("debug", false, "debug mode")
+	flag.Parse()
+
+	log := logrus.New()
+
+	if *debugMode {
+		log.SetLevel(logrus.DebugLevel)
+		log.Debug("debug mode enabled")
+	}
+
 	handler := MyCustomHandler{
+		Server:  "test",
 		Timeout: 1 * time.Second,
 		PropA:   "A",
 		PropB:   "B",
@@ -20,7 +33,7 @@ func main() {
 	}
 	p := socks.Proxy{
 		ServerAddr:   "127.0.0.1:1080",
-		Proxyhandler: &handler,
+		Proxyhandler: handler,
 		Timeout:      1 * time.Second,
 		Log:          log,
 	}
@@ -32,23 +45,22 @@ func main() {
 }
 
 type MyCustomHandler struct {
+	Server  string
 	Timeout time.Duration
 	PropA   string
 	PropB   string
 	Log     socks.Logger
 }
 
-func (s *MyCustomHandler) Init(request socks.Request) (io.ReadWriteCloser, *socks.Error) {
-	target := fmt.Sprintf("%s:%d", request.DestinationAddress, request.DestinationPort)
-	s.Log.Infof("Connecting to target %s", target)
-	remote, err := net.DialTimeout("tcp", target, s.Timeout)
+func (s MyCustomHandler) Init(ctx context.Context, request socks.Request) (io.ReadWriteCloser, *socks.Error) {
+	conn, err := net.DialTimeout("tcp", s.Server, s.Timeout)
 	if err != nil {
-		return nil, socks.NewError(socks.RequestReplyNetworkUnreachable, err)
+		return nil, socks.NewError(socks.RequestReplyHostUnreachable, fmt.Errorf("error on connecting to server: %w", err))
 	}
-	return remote, nil
+	return conn, nil
 }
 
-func (s *MyCustomHandler) Refresh(ctx context.Context) {
+func (s MyCustomHandler) Refresh(ctx context.Context) {
 	tick := time.NewTicker(10 * time.Second)
 	select {
 	case <-ctx.Done():
@@ -58,24 +70,42 @@ func (s *MyCustomHandler) Refresh(ctx context.Context) {
 	}
 }
 
-func (s *MyCustomHandler) ReadFromRemote(ctx context.Context, remote io.ReadCloser, client io.WriteCloser) error {
-	i, err := io.Copy(client, remote)
-	if err != nil {
-		return err
+const bufferSize = 10240
+
+func (s MyCustomHandler) ReadFromRemote(ctx context.Context, remote io.ReadCloser, client io.WriteCloser) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+			i, err := io.CopyN(client, remote, bufferSize)
+			if errors.Is(err, io.EOF) {
+				return nil
+			} else if err != nil {
+				return fmt.Errorf("ReadFromRemote: %w", err)
+			}
+			s.Log.Debugf("[socks] wrote %d bytes to client", i)
+		}
 	}
-	s.Log.Debugf("wrote %d bytes to client", i)
-	return nil
 }
 
-func (s *MyCustomHandler) ReadFromClient(ctx context.Context, client io.ReadCloser, remote io.WriteCloser) error {
-	i, err := io.Copy(remote, client)
-	if err != nil {
-		return err
+func (s MyCustomHandler) ReadFromClient(ctx context.Context, client io.ReadCloser, remote io.WriteCloser) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+			i, err := io.CopyN(remote, client, bufferSize)
+			if errors.Is(err, io.EOF) {
+				return nil
+			} else if err != nil {
+				return fmt.Errorf("ReadFromClient: %w", err)
+			}
+			s.Log.Debugf("[socks] wrote %d bytes to remote", i)
+		}
 	}
-	s.Log.Debugf("wrote %d bytes to remote", i)
-	return nil
 }
 
-func (s MyCustomHandler) Close() error {
+func (s MyCustomHandler) Close(ctx context.Context) error {
 	return nil
 }

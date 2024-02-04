@@ -4,15 +4,14 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        go: ["stable"]
-        node: ["18"]
     steps:
-      - name: Set up Go ${{ matrix.go }}
+      - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: ${{ matrix.go }}
+          go-version: "stable"
+
+      - name: Install Task
+        uses: arduino/setup-task@v1
 
       - name: Check out code
         uses: actions/checkout@v4
@@ -30,7 +29,10 @@ jobs:
           go get -v -t -d ./...
 
       - name: Build
-        run: make build
+        run: task build
+
+      - name: Build examples
+        run: task build-examples
 
       - name: Test
-        run: make test
+        run: task test

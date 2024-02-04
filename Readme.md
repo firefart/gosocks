@@ -14,11 +14,11 @@ The SOCKS protocol is defined in [rfc1928](https://tools.ietf.org/html/rfc1928)
 
 ```golang
 type ProxyHandler interface {
-	Init(Request) (io.ReadWriteCloser, *Error)
+	Init(context.Context, Request) (io.ReadWriteCloser, *Error)
 	ReadFromClient(context.Context, io.ReadCloser, io.WriteCloser) error
 	ReadFromRemote(context.Context, io.ReadCloser, io.WriteCloser) error
-	Close() error
-	Refresh(ctx context.Context)
+	Close(context.Context, ) error
+	Refresh(context.Context)
 }
 ```
 
@@ -44,4 +44,4 @@ Refresh is called in a seperate goroutine and should loop forever to do refreshe
 
 ## Examples
 
-For examples please have a look at the examples folder
+Please see the `examples` directory.
