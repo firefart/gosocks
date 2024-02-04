@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"net"
@@ -13,7 +14,16 @@ import (
 )
 
 func main() {
+	debugMode := flag.Bool("debug", false, "debug mode")
+	flag.Parse()
+
 	log := logrus.New()
+
+	if *debugMode {
+		log.SetLevel(logrus.DebugLevel)
+		log.Debug("debug mode enabled")
+	}
+
 	handler := MyCustomHandler{
 		Server:  "test",
 		Timeout: 1 * time.Second,
