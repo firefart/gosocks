@@ -74,7 +74,31 @@ func (s MyCustomHandler) Refresh(ctx context.Context) {
 
 const bufferSize = 10240
 
+type readDeadline interface {
+	SetReadDeadline(time.Time) error
+}
+type writeDeadline interface {
+	SetWriteDeadline(time.Time) error
+}
+
 func (s MyCustomHandler) ReadFromRemote(ctx context.Context, remote io.ReadCloser, client io.WriteCloser) error {
+	timeOut := time.Now().Add(s.Timeout)
+
+	ctx, cancel := context.WithDeadline(ctx, timeOut)
+	defer cancel()
+
+	if c, ok := client.(writeDeadline); ok {
+		if err := c.SetWriteDeadline(timeOut); err != nil {
+			return fmt.Errorf("could not set write deadline on client: %v", err)
+		}
+	}
+
+	if c, ok := remote.(readDeadline); ok {
+		if err := c.SetReadDeadline(timeOut); err != nil {
+			return fmt.Errorf("could not set read deadline on remote: %v", err)
+		}
+	}
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -92,6 +116,23 @@ func (s MyCustomHandler) ReadFromRemote(ctx context.Context, remote io.ReadClose
 }
 
 func (s MyCustomHandler) ReadFromClient(ctx context.Context, client io.ReadCloser, remote io.WriteCloser) error {
+	timeOut := time.Now().Add(s.Timeout)
+
+	ctx, cancel := context.WithDeadline(ctx, timeOut)
+	defer cancel()
+
+	if c, ok := remote.(writeDeadline); ok {
+		if err := c.SetWriteDeadline(timeOut); err != nil {
+			return fmt.Errorf("could not set write deadline on remote: %v", err)
+		}
+	}
+
+	if c, ok := client.(readDeadline); ok {
+		if err := c.SetReadDeadline(timeOut); err != nil {
+			return fmt.Errorf("could not set read deadline on client: %v", err)
+		}
+	}
+
 	for {
 		select {
 		case <-ctx.Done():
