@@ -17,7 +17,7 @@ type ProxyHandler interface {
 	Init(context.Context, Request) (io.ReadWriteCloser, *Error)
 	ReadFromClient(context.Context, io.ReadCloser, io.WriteCloser) error
 	ReadFromRemote(context.Context, io.ReadCloser, io.WriteCloser) error
-	Close(context.Context, ) error
+	Close(context.Context) error
 	Refresh(context.Context)
 }
 ```
