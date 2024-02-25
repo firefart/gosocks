@@ -9,7 +9,7 @@ import (
 
 // ProxyHandler is the interface for handling the proxy requests
 type ProxyHandler interface {
-	Init(context.Context, Request) (io.ReadWriteCloser, *Error)
+	Init(context.Context, Request) (context.Context, io.ReadWriteCloser, *Error)
 	ReadFromClient(context.Context, io.ReadCloser, io.WriteCloser) error
 	ReadFromRemote(context.Context, io.ReadCloser, io.WriteCloser) error
 	Close(context.Context) error
