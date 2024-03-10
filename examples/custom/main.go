@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"sync/atomic"
 	"time"
 
 	socks "github.com/firefart/gosocks"
@@ -53,29 +52,30 @@ type MyCustomHandler struct {
 	Log     socks.Logger
 }
 
-var requestCounter atomic.Int64
+type contextKeyRequestID string
 
-type contextKeyRequestID struct{}
+const requestIDKey contextKeyRequestID = "request-id"
 
 func (s MyCustomHandler) Init(ctx context.Context, request socks.Request) (context.Context, io.ReadWriteCloser, *socks.Error) {
 	conn, err := net.DialTimeout("tcp", s.Server, s.Timeout)
 	if err != nil {
 		return ctx, nil, socks.NewError(socks.RequestReplyHostUnreachable, fmt.Errorf("error on connecting to server: %w", err))
 	}
-
-	requestID := requestCounter.Add(1)
-	s.Log.Debugf("processing request %d", requestID)
-	return context.WithValue(ctx, contextKeyRequestID{}, requestID), conn, nil
+	return context.WithValue(ctx, requestIDKey, "1234-5678-90"), conn, nil
 }
 
 func (s MyCustomHandler) Refresh(ctx context.Context) {
+	reqID, ok := ctx.Value(requestIDKey).(string)
+	if !ok {
+		panic("invalid request id")
+	}
 	tick := time.NewTicker(10 * time.Second)
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-tick.C:
-			s.Log.Debug("refreshing connection")
+			s.Log.Debugf("refreshing connection %s", reqID)
 		}
 	}
 }
@@ -107,6 +107,11 @@ func (s MyCustomHandler) ReadFromRemote(ctx context.Context, remote io.ReadClose
 		}
 	}
 
+	reqID, ok := ctx.Value(requestIDKey).(string)
+	if !ok {
+		panic("invalid request id")
+	}
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -118,7 +123,7 @@ func (s MyCustomHandler) ReadFromRemote(ctx context.Context, remote io.ReadClose
 			} else if err != nil {
 				return fmt.Errorf("ReadFromRemote: %w", err)
 			}
-			s.Log.Debugf("[socks] wrote %d bytes to client", i)
+			s.Log.Debugf("[socks] wrote %d bytes to client for request %s", i, reqID)
 		}
 	}
 }
@@ -141,6 +146,11 @@ func (s MyCustomHandler) ReadFromClient(ctx context.Context, client io.ReadClose
 		}
 	}
 
+	reqID, ok := ctx.Value(requestIDKey).(string)
+	if !ok {
+		panic("invalid request id")
+	}
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -152,13 +162,17 @@ func (s MyCustomHandler) ReadFromClient(ctx context.Context, client io.ReadClose
 			} else if err != nil {
 				return fmt.Errorf("ReadFromClient: %w", err)
 			}
-			s.Log.Debugf("[socks] wrote %d bytes to remote", i)
+			s.Log.Debugf("[socks] wrote %d bytes to remote for request %s", i, reqID)
 		}
 	}
 }
 
 func (s MyCustomHandler) Close(ctx context.Context) error {
-	s.Log.Debugf("processed request %d", ctx.Value(contextKeyRequestID{}).(int64))
+	reqID, ok := ctx.Value(requestIDKey).(string)
+	if !ok {
+		panic("invalid request id")
+	}
+	s.Log.Debugf("processed request %d", reqID)
 
 	return nil
 }

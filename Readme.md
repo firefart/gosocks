@@ -14,11 +14,11 @@ The SOCKS protocol is defined in [rfc1928](https://tools.ietf.org/html/rfc1928)
 
 ```golang
 type ProxyHandler interface {
-	Init(context.Context, Request) (context.Context, io.ReadWriteCloser, *Error)
-	ReadFromClient(context.Context, io.ReadCloser, io.WriteCloser) error
-	ReadFromRemote(context.Context, io.ReadCloser, io.WriteCloser) error
-	Close(context.Context) error
-	Refresh(context.Context)
+  Init(context.Context, Request) (context.Context, io.ReadWriteCloser, *Error)
+  ReadFromClient(context.Context, io.ReadCloser, io.WriteCloser) error
+  ReadFromRemote(context.Context, io.ReadCloser, io.WriteCloser) error
+  Close(context.Context) error
+  Refresh(context.Context)
 }
 ```
 
@@ -28,11 +28,11 @@ Init is called before the copy operations and it should return a connection to t
 
 ### ReadFromClient
 
-ReadFromClient is the method that handles the data copy from the client (you) to the remote connection. You can see the `DefaultHandler` for a sample implementation.
+ReadFromClient is the method that handles the data copy from the client (you) to the remote connection. You can see the `DefaultHandler` for a sample implementation. You can also pass in custom data using the context.
 
 ### ReadFromRemote
 
-ReadFromRemote is the method that handles the data copy from the remote connection to the client (you). You can see the `DefaultHandler` for a sample implementation.
+ReadFromRemote is the method that handles the data copy from the remote connection to the client (you). You can see the `DefaultHandler` for a sample implementation. You can also pass in custom data using the context.
 
 ### Close
 
