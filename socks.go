@@ -32,12 +32,6 @@ func (p *Proxy) handle(ctx context.Context, conn net.Conn) {
 }
 
 func (p *Proxy) socks(ctx context.Context, conn net.Conn) *Error {
-	defer func() {
-		if err := p.Proxyhandler.Close(ctx); err != nil {
-			p.Log.Errorf("error on close: %v", err)
-		}
-	}()
-
 	if err := p.handleConnect(ctx, conn); err != nil {
 		return err
 	}
@@ -50,10 +44,15 @@ func (p *Proxy) socks(ctx context.Context, conn net.Conn) *Error {
 	p.Log.Infof("Connecting to %s", request.GetDestinationString())
 
 	// Should we assume connection succeed here?
-	remote, err := p.Proxyhandler.Init(ctx, *request)
+	ctx, remote, err := p.Proxyhandler.Init(ctx, *request)
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if err := p.Proxyhandler.Close(ctx); err != nil {
+			p.Log.Errorf("error on close: %v", err)
+		}
+	}()
 	defer remote.Close()
 	p.Log.Infof("Connection established %s - %s", conn.RemoteAddr().String(), request.GetDestinationString())
 

@@ -14,7 +14,7 @@ The SOCKS protocol is defined in [rfc1928](https://tools.ietf.org/html/rfc1928)
 
 ```golang
 type ProxyHandler interface {
-	Init(context.Context, Request) (io.ReadWriteCloser, *Error)
+	Init(context.Context, Request) (context.Context, io.ReadWriteCloser, *Error)
 	ReadFromClient(context.Context, io.ReadCloser, io.WriteCloser) error
 	ReadFromRemote(context.Context, io.ReadCloser, io.WriteCloser) error
 	Close(context.Context) error
@@ -24,7 +24,7 @@ type ProxyHandler interface {
 
 ### Init
 
-Init is called before the copy operations and it should return a connection to the target that is ready to receive data.
+Init is called before the copy operations and it should return a connection to the target that is ready to receive data. It may also amend the context used throughout the lifecycle of the request.
 
 ### ReadFromClient
 

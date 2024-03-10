@@ -17,16 +17,16 @@ type DefaultHandler struct {
 }
 
 // Init is the default socks5 implementation
-func (s DefaultHandler) Init(ctx context.Context, request Request) (io.ReadWriteCloser, *Error) {
+func (s DefaultHandler) Init(ctx context.Context, request Request) (context.Context, io.ReadWriteCloser, *Error) {
 	target := request.GetDestinationString()
 	if s.Log != nil {
 		s.Log.Infof("Connecting to target %s", target)
 	}
 	remote, err := net.DialTimeout("tcp", target, s.Timeout)
 	if err != nil {
-		return nil, NewError(RequestReplyHostUnreachable, fmt.Errorf("error on connecting to server: %w", err))
+		return ctx, nil, NewError(RequestReplyHostUnreachable, fmt.Errorf("error on connecting to server: %w", err))
 	}
-	return remote, nil
+	return ctx, remote, nil
 }
 
 const bufferSize = 10240

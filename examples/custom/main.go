@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"sync/atomic"
 	"time"
 
 	socks "github.com/firefart/gosocks"
@@ -52,12 +53,19 @@ type MyCustomHandler struct {
 	Log     socks.Logger
 }
 
-func (s MyCustomHandler) Init(ctx context.Context, request socks.Request) (io.ReadWriteCloser, *socks.Error) {
+var requestCounter atomic.Int64
+
+type contextKeyRequestID struct{}
+
+func (s MyCustomHandler) Init(ctx context.Context, request socks.Request) (context.Context, io.ReadWriteCloser, *socks.Error) {
 	conn, err := net.DialTimeout("tcp", s.Server, s.Timeout)
 	if err != nil {
-		return nil, socks.NewError(socks.RequestReplyHostUnreachable, fmt.Errorf("error on connecting to server: %w", err))
+		return ctx, nil, socks.NewError(socks.RequestReplyHostUnreachable, fmt.Errorf("error on connecting to server: %w", err))
 	}
-	return conn, nil
+
+	requestID := requestCounter.Add(1)
+	s.Log.Debugf("processing request %d", requestID)
+	return context.WithValue(ctx, contextKeyRequestID{}, requestID), conn, nil
 }
 
 func (s MyCustomHandler) Refresh(ctx context.Context) {
@@ -150,5 +158,7 @@ func (s MyCustomHandler) ReadFromClient(ctx context.Context, client io.ReadClose
 }
 
 func (s MyCustomHandler) Close(ctx context.Context) error {
+	s.Log.Debugf("processed request %d", ctx.Value(contextKeyRequestID{}).(int64))
+
 	return nil
 }
