@@ -35,6 +35,11 @@ tasks:
           GOOS: windows
           GOARCH: amd64
 
+  build-examples:
+    cmds:
+      - go build examples/default/main.go
+      - go build examples/custom/main.go
+
   test:
     env:
       CGO_ENABLED: 1 # required by -race
