@@ -27,6 +27,7 @@ tasks:
       - gofumpt -l -w .
       - go vet ./...
       - go build -o {{.PROGRAM}} examples/default/main.go
+
   build-examples:
     cmds:
       - go build examples/default/main.go
