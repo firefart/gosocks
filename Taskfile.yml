@@ -4,43 +4,36 @@ vars:
   PROGRAM: gosocks
 
 tasks:
+  deps:
+    cmds:
+      - go mod tidy -v
+
   update:
     cmds:
       - go get -u
       - go mod tidy -v
 
+  setup:
+    cmds:
+      - go install mvdan.cc/gofumpt@latest
+
   build:
     aliases: [default]
-    cmds:
-      - go fmt ./...
-      - go vet ./...
-      - go build -o {{.OUTPUT_FILE | default .PROGRAM}} examples/default/main.go
+    deps: [deps]
     env:
       CGO_ENABLED: 0
-      GOOS: '{{.GOOS | default "linux"}}'
-      GOARCH: '{{.GOARCH | default "amd64"}}'
-
-  linux:
     cmds:
-      - task: build
-        vars:
-          GOOS: linux
-          GOARCH: amd64
-
-  windows:
-    cmds:
-      - task: build
-        vars:
-          OUTPUT_FILE: "{{.PROGRAM}}.exe"
-          GOOS: windows
-          GOARCH: amd64
-
+      - go fmt ./...
+      - gofumpt -l -w .
+      - go vet ./...
+      - go build -o {{.PROGRAM}} examples/default/main.go
   build-examples:
     cmds:
       - go build examples/default/main.go
       - go build examples/custom/main.go
 
   test:
+    deps: [deps]
     env:
       CGO_ENABLED: 1 # required by -race
     cmds:

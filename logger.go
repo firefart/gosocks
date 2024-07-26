@@ -11,8 +11,7 @@ type Logger interface {
 	Errorf(format string, args ...interface{})
 }
 
-type NilLogger struct {
-}
+type NilLogger struct{}
 
 func (l *NilLogger) Debug(args ...interface{})                 {}
 func (l *NilLogger) Debugf(format string, args ...interface{}) {}
