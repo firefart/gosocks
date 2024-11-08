@@ -1,6 +1,6 @@
 module github.com/firefart/gosocks
 
-go 1.22
+go 1.23
 
 require github.com/sirupsen/logrus v1.9.3
 
