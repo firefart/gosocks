@@ -64,15 +64,16 @@ func requestReply(request *Request, reply RequestReplyReason) ([]byte, error) {
 		}
 
 		// type
-		if request.AddressType == RequestAddressTypeIPv4 {
+		switch request.AddressType {
+		case RequestAddressTypeIPv4:
 			if err := binary.Write(buffer, binary.BigEndian, request.DestinationAddress); err != nil {
 				return nil, err
 			}
-		} else if request.AddressType == RequestAddressTypeIPv6 {
+		case RequestAddressTypeIPv6:
 			if err := binary.Write(buffer, binary.BigEndian, request.DestinationAddress); err != nil {
 				return nil, err
 			}
-		} else {
+		default:
 			if err := binary.Write(buffer, binary.BigEndian, byte(len(request.DestinationAddress))); err != nil {
 				return nil, err
 			}

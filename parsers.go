@@ -60,7 +60,7 @@ func parseRequest(buf []byte) (*Request, *Error) {
 	case byte(Version5):
 		r.Version = Version5
 	default:
-		return nil, NewError(RequestReplyConnectionRefused, fmt.Errorf("Invalid Socks version %#x", version))
+		return nil, NewError(RequestReplyConnectionRefused, fmt.Errorf("invalid Socks version %#x", version))
 	}
 	cmd := buf[1]
 	switch cmd {
@@ -71,7 +71,7 @@ func parseRequest(buf []byte) (*Request, *Error) {
 	// case byte(RequestCmdAssociate):
 	// 	r.Command = RequestCmdAssociate
 	default:
-		return nil, NewError(RequestReplyCommandNotSupported, fmt.Errorf("Command %#x not supported", cmd))
+		return nil, NewError(RequestReplyCommandNotSupported, fmt.Errorf("command %#x not supported", cmd))
 	}
 	addresstype := buf[3]
 	switch addresstype {
